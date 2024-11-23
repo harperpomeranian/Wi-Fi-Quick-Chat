@@ -2,6 +2,10 @@
 
 Simple local Wi-Fi chat app that uses WebSockets and UDP; Made with [DroidScript](https://droidscript.org/)
 
+## Features
+
+- Fully offline
+
 ## Installation
 
 There are two ways of using this app, using the [DroidScript IDE](#using-droidscript) or by installing the APK.

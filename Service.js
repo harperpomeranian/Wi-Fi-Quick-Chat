@@ -6,6 +6,7 @@ const GetIP = () => app.GetIPAddress() + ':' + SERVER_PORT;
 let net, server;
 let discoveredUsers = {};
 let isPaused = true;
+let receivedMessages = [];
 
 function OnStart() {
     app.SetDebug("console");
@@ -38,6 +39,7 @@ function OnMessage(data) {
             break;
         case "Resumed":
             isPaused = false;
+            sendMsg("LoadMessages", {"messages": receivedMessages});
             break;
 
         case "SendMessage":
@@ -80,7 +82,7 @@ function createServer() {
     // Better to use NodeJS for more features.
     console.log("Creating Server...");
     server = app.CreateWebServer(SERVER_PORT);
-    server.AddServlet("/message", onServletMessage);
+    server.AddServlet("/message", onReceivedMessage);
     server.AddServlet("/here", (data, _) => {
         try {
             data.ip = atob(data.ip);
@@ -148,7 +150,7 @@ function onUDPMessage(packet, _) {
 	}
 }
 
-function onServletMessage(receivedData, _) {
+function onReceivedMessage(receivedData, _) {
     let message = {};
     
     try {
@@ -158,6 +160,13 @@ function onServletMessage(receivedData, _) {
     }
     
     if (!message.author || !message.content) return false;
+    
+    message = {
+        author: message.author,
+        content: message.content
+    };
+
+    receivedMessages.push(message);
     
     if (isPaused) {
         const notif = app.CreateNotification("AutoCancel");
