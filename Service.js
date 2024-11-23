@@ -30,10 +30,37 @@ function OnStart() {
 }
 
 function OnMessage(data) {
-    data = JSON.parse(data);
+    if (typeof data != "object") data = JSON.parse(data);
+    console.log("From Main: " + data.type);
+
     switch(data.type) {
+        case "AreYouAlive":
+            sendMsg("Connected");
+            break;
+
         case "SendMessage":
-            
+            // TODO: Fix main app still showing "No Messages Yet"
+            if (!server) {
+                tmp.isSendingMessage = true;
+                tmp.messageFailedTimeout = setTimeout(() => {
+                    tmp.isSendingMessage = false;
+                    sendMsg("MessageSentFailed");
+                });
+                sendWs("Message", {"message": {
+                    "author": app.GetIPAddress(),
+                    "content": data.message
+                }});
+                return;
+            }
+            server.SendText({
+                "type": "Message",
+                "from": app.GetIPAddress(),
+                "message": {
+                    "author": app.GetIPAddress(),
+                    "content": data.message
+                }
+            });
+            sendMsg("MessageSent");
             break;
     }
 }
@@ -46,38 +73,11 @@ function sendUDP(data) {
 function sendWs(type, data) {
     console.log("Sending WS: " + type);
     let toSend = {
-        type
+        type,
+        from: app.GetIPAddress()
     };
     for(let k in data) toSend[k] = data[k];
     wsClient.send(toSend);
-}
-
-function checkUDPMessage() {
-    const packet = net.ReceiveDatagram("UTF-8", net.GetBroadcastAddress(), UDP_PORT);
-    if (!packet) return;
-    
-    let data = {};
-    
-    try {
-	    let parsedData = JSON.parse(packet);
-	    data = parsedData;
-	} catch(e) {
-	    console.log(e);
-	    console.log(packet);
-	    return;
-	}
-	
-	switch(data.type) {
-	    case "DiscoverServer":
-	        if (connectionStatus == CON_STATUS.CONNECTED) sendUDP({"type": "BroadcastServer", "address": serverAddress});
-	        break;
-	   case "BroadcastServer":
-	        if (connectionStatus != CON_STATUS.CONNECTING || connectionStatus != CON_STATUS.CONNECTED || !data.address) return;
-	        
-	        clearTimeout(serverDiscoveryTimeout);
-	        connectToServer(data.address);
-	        break;
-	}
 }
 
 function connectToServer(serverAddr) {
@@ -122,6 +122,35 @@ function sendMsg(type, data = {}) {
     app.SendMessage(JSON.stringify({"type": type, ...data}));
 }
 
+function checkUDPMessage() {
+    console.log("Receivng Datagram...");
+    const packet = net.ReceiveDatagram("UTF-8", net.GetBroadcastAddress(), UDP_PORT);
+    if (!packet) return;
+    
+    let data = {};
+    
+    try {
+	    let parsedData = JSON.parse(packet);
+	    data = parsedData;
+	} catch(e) {
+	    console.log(e);
+	    console.log(packet);
+	    return;
+	}
+	
+	switch(data.type) {
+	    case "DiscoverServer":
+	        if (connectionStatus == CON_STATUS.CONNECTED) sendUDP({"type": "BroadcastServer", "address": serverAddress});
+	        break;
+	   case "BroadcastServer":
+	        if (connectionStatus != CON_STATUS.CONNECTING || connectionStatus != CON_STATUS.CONNECTED || !data.address) return;
+	        
+	        clearTimeout(serverDiscoveryTimeout);
+	        connectToServer(data.address);
+	        break;
+	}
+}
+
 function onWsReceive(msg) {
     if (verificationCode !== null)
         if (verificationCode != msg) resetConnection();
@@ -142,7 +171,10 @@ function onWsReceive(msg) {
         return;
     }
 
-    if (data.from == app.GetIPAddress()) return;
+    if (data.from == app.GetIPAddress()) {
+        if (data.type != "Message") return;
+        if (data.message.author == app.GetIPAddress()) return sendMsg("MessageSent");
+    };
     
     const verifyMessage = (message) => {
         if (typeof message != "object") return false;
@@ -155,6 +187,7 @@ function onWsReceive(msg) {
         case "Message":
             if (!verifyMessage(data.message)) return;
             sendMsg("Message", data.message);
+            // TODO: Save messages to a file and delete that file every time
             break;
         default:
             console.log("Unknown", msg);

@@ -27,7 +27,10 @@ function OnStart() {
     
     app.AddLayout(lay);
     
-    svc = app.CreateService("this", "this", () => app.ShowProgress("Connection Loading..."), "Persist");
+    svc = app.CreateService("this", "this", () => {
+        app.ShowProgress("Connection Loading...");
+        sendMessage("AreYouAlive");
+    }, "Persist");
     svc.SetOnMessage(onSvcMsg);
 }
 
@@ -36,7 +39,7 @@ function OnResume() {
 }
 
 function onSvcMsg(data) {
-    data = JSON.parse(data);
+    if (typeof data != "object") data = JSON.parse(data);
     
     switch(data.type) {
         case "Connected":
@@ -47,7 +50,11 @@ function onSvcMsg(data) {
             for(let msg in data.messages) messages.push(msg.author + ':' + msg.content.replace(/,/g, "^c^"));
             msgList.SetList(messages.join(','));
             break;
-            
+        
+        case "Message":
+            msgList.InsertItem(msgList.GetList().length, data.message.author, data.message.content);
+            msgList.ScrollToItemByIndex(msgList.GetList().length - 1);
+            break;
         case "MessageSent":
             app.HideProgress();
             msgList.InsertItem(msgList.GetList().length, app.GetIPAddress(), messageBox.GetText());
@@ -61,13 +68,19 @@ function onSvcMsg(data) {
 }
 
 function onSendMsg() {
-    if (!messageBox.GetText().trim()) return;
+    if (!messageBox.GetText().trim()) {
+        app.ShowPopup("Can't send an empty message!");
+        messageBox.Focus();
+        app.ShowKeyboard(messageBox);
+        return;
+    }
     
     app.ShowProgress("Sending Message...");
     sendMessage("SendMessage", {"message": messageBox.GetText()});
 }
 
-function sendMessage(type, data) {
+function sendMessage(type, data = {}) {
+    console.log("Sending to Service: " + type);
     let toSend = { type };
     for(let k in data) toSend[k] = data[k];
     svc.SendMessage(JSON.stringify(toSend));
