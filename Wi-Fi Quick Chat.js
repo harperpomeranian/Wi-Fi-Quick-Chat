@@ -1,5 +1,7 @@
 cfg.Dark, cfg.Portrait;
 
+let serviceReadyInterval;
+
 function OnStart() {
     app.SetDebug("console");
     app.PreventScreenLock(true);
@@ -29,21 +31,17 @@ function OnStart() {
     
     svc = app.CreateService("this", "this", () => {
         app.ShowProgress("Connection Loading...");
-        sendMessage("AreYouAlive");
-    }, "Persist");
+        serviceReadyInterval = setInterval(() => sendMessage("AreYouReady?"), 1000); // Maybe set this to be shorter
+    });
     svc.SetOnMessage(onSvcMsg);
 }
-
-function OnResume() {
-    infoText.SetHtml(app.GetIPAddress());
-}
-
 function onSvcMsg(data) {
     if (typeof data != "object") data = JSON.parse(data);
     
     switch(data.type) {
-        case "Connected":
+        case "Ready":
             app.HideProgress();
+            clearInterval(serviceReadyInterval)
             break;
         case "LoadMessages":
             let messages = [];
@@ -52,8 +50,8 @@ function onSvcMsg(data) {
             break;
         
         case "Message":
-            msgList.InsertItem(msgList.GetList().length, data.message.author, data.message.content);
-            msgList.ScrollToItemByIndex(msgList.GetList().length - 1);
+            msgList.InsertItem(msgList.GetList().length, data.author, data.content.replace(/,/g, "^c^"));
+            msgList.ScrollToItemByIndex(msgList.GetList().length - 1); // This doesn't work for some reason...
             break;
         case "MessageSent":
             app.HideProgress();
@@ -64,6 +62,9 @@ function onSvcMsg(data) {
             app.HideProgress();
             app.Alert("Couldn't send your message!", "Error");
             break;
+        
+        case "Active":
+            infoText.SetText(app.GetIPAddress() + " - Active Users: " + data.num);
     }
 }
 

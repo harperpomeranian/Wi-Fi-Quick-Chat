@@ -1,32 +1,22 @@
 const UDP_PORT = 18902;
-const SERVER_PORT = 8912;
-const CON_STATUS = {
-    "DISCONNECTED": 0,
-    "CONNECTING": 1,
-    "CONNECTED": 2
-};
+const SERVER_PORT = 8000 + Math.floor(Math.random() * 1000);
 const contentFolder = app.GetPrivateFolder();
+const GetIP = () => app.GetIPAddress() + ':' + SERVER_PORT;
 
-let net, server, wsClient;
-let isServer = false;
-let serverAddress = null;
-let connectionStatus = 0;
-let verificationCode = null;
-let tmp = {
-    "serverDiscoveryTimeout": null,
-    "serverAddress": null
-};
+let net, server;
+let discoveredUsers = {};
 
 function OnStart() {
     app.SetDebug("console");
 	if (app.GetBuildNum() > 25) app.SetInForeground("Wi-Fi Quick Chat");
 	
 	net = app.CreateNetClient("UDP");
-	
-	setInterval(checkUDPMessage, 500);
-	
-	sendUDP({"type": "DiscoverServer"});
-	serverDiscoveryTimeout = setTimeout(createServer, 3000); // Maybe make this longer?
+    net.SetOnReceive(onUDPMessage);
+    net.ReceiveDatagrams(UDP_PORT, "UTF-8");
+
+    setInterval(() => sendMsg("Active", {"num": Object.keys(discoveredUsers).length}), 1000);
+
+    createServer();
 }
 
 function OnMessage(data) {
@@ -34,98 +24,90 @@ function OnMessage(data) {
     console.log("From Main: " + data.type);
 
     switch(data.type) {
-        case "AreYouAlive":
-            sendMsg("Connected");
+        case "AreYouReady?":
+            if (server) sendMsg("Ready");
             break;
 
         case "SendMessage":
             // TODO: Fix main app still showing "No Messages Yet"
-            if (!server) {
-                tmp.isSendingMessage = true;
-                tmp.messageFailedTimeout = setTimeout(() => {
-                    tmp.isSendingMessage = false;
-                    sendMsg("MessageSentFailed");
-                });
-                sendWs("Message", {"message": {
-                    "author": app.GetIPAddress(),
-                    "content": data.message
-                }});
-                return;
-            }
-            server.SendText({
-                "type": "Message",
-                "from": app.GetIPAddress(),
-                "message": {
-                    "author": app.GetIPAddress(),
-                    "content": data.message
-                }
+            broadcastData("Message", {
+                "author": GetIP(),
+                "content": data.message
             });
             sendMsg("MessageSent");
             break;
     }
 }
 
-function sendUDP(data) {
-    console.log("Sending UDP: " + data.type);
+function sendMsg(type, data = {}) {
+    console.log("Sending to app: " + type);
+    app.SendMessage(JSON.stringify({type, ...data}));
+}
+
+function broadcastUDP(data) {
+    console.log("Broadcasting UDP Message: " + data.type);
+    data.from = GetIP();
     net.SendDatagram(JSON.stringify(data), "UTF-8", net.GetBroadcastAddress(), UDP_PORT);
 }
 
-function sendWs(type, data) {
-    console.log("Sending WS: " + type);
+function broadcastData(type, data) {
+    console.log("Sending to clients: " + type);
     let toSend = {
         type,
-        from: app.GetIPAddress()
+        from: GetIP()
     };
     for(let k in data) toSend[k] = data[k];
-    wsClient.send(toSend);
-}
 
-function connectToServer(serverAddr) {
-    if (serverAddr.split('.').length != 4) return;
-    
-    tmp.serverAddress = serverAddr;
-    
-    wsClient = app.CreateWebSocket(serverAddr, "sock1", 3);
-    wsClient.SetOnClose(resetConnection);
-    wsClient.SetOnOpen(() => {
-        verificationCode = Math.floor(Math.random() * 999);
-        console.log("WS Opened, Verifying Connection... With code: " + verificationCode);
-        app.HttpRequest("GET", "http://" + serverAddress + ':' + SERVER_PORT, "/verify", "call=" + app.GetIPAddress() + "|code=" + verificationCode, (err, rep) => {
-            if (err) resetConnection();
-        });
-    });
-    wsClient.SetOnMessage(onWsReceive);
-}
-
-function resetConnection() {
-    try {
-        wsClient.Close();
-    } catch(e) {}
-    connectionStatus = 0;
-    serverAddress = null;
-    verificationCode = null;
+    for(let user in discoveredUsers) {
+        // Yes, this will cause an error if the url length is more than ~2000 characters
+        httpReq("GET", "http://" + user, "/message", "data=" + btoa(JSON.stringify(toSend)));
+    }
 }
 
 function createServer() {
     // Better to use NodeJS for more features.
-    console.log("Creating Server instead...");
-    server = app.CreateWebServer(SERVER_PORT, "Reflect");
+    console.log("Creating Server...");
+    server = app.CreateWebServer(SERVER_PORT);
+    server.AddServlet("/message", onServletMessage);
+    server.AddServlet("/here", (data, _) => {
+        try {
+            data.ip = atob(data.ip);
+            if (data.ip.split('.').length !== 4 || data.ip[data.ip.length - 5] !== ':') return;
+        } catch(e) {
+            return;
+        }
+        
+        // Maybe make the hotspot device immortal?
+        discoveredUsers[data.ip] = Date.now();
+    })
     server.Start();
-    serverAddress = app.GetIPAddress();
-    connectionStatus = CON_STATUS.CONNECTED;
-    sendUDP({"type": "BroadcastServer", "address": serverAddress});
-    sendMsg("Connected");
+
+    console.log("Server created! " + GetIP());
+    sendMsg("Ready");
+
+    setInterval(() => {
+        broadcastUDP({"type": "Here"});
+        
+        if (!app.IsWifiApEnabled()) return;
+
+        for(let user in discoveredUsers) {
+            httpReq("GET", "http://" + user, "/here", "ip=" + btoa(GetIP()));
+        }
+    }, 1000);
+    setInterval(() => { // Remove dead uesrs
+        for(let user in discoveredUsers) {
+            let lastPing = Date.now() - discoveredUsers[user];
+
+            if (lastPing > 5000) {
+                console.log("Removing " + user + " because last ping was from " + (lastPing / 1000) + " seconds ago");
+                delete discoveredUsers[user];
+            }
+        }
+    }, 5000);
 }
 
-function sendMsg(type, data = {}) {
-    console.log("Sending to app: " + type);
-    app.SendMessage(JSON.stringify({"type": type, ...data}));
-}
-
-function checkUDPMessage() {
-    console.log("Receivng Datagram...");
-    const packet = net.ReceiveDatagram("UTF-8", net.GetBroadcastAddress(), UDP_PORT);
-    if (!packet) return;
+function onUDPMessage(packet, _) {
+    if (!packet) return console.log("Invalid packet...");
     
     let data = {};
     
@@ -137,59 +119,46 @@ function checkUDPMessage() {
 	    console.log(packet);
 	    return;
 	}
+
+    if (!data.from || data.from == GetIP()) return;
+    // Checking if the IP is valid via pinging is better
+    if (data.from.split('.').length != 4) return;
 	
 	switch(data.type) {
-	    case "DiscoverServer":
-	        if (connectionStatus == CON_STATUS.CONNECTED) sendUDP({"type": "BroadcastServer", "address": serverAddress});
-	        break;
-	   case "BroadcastServer":
-	        if (connectionStatus != CON_STATUS.CONNECTING || connectionStatus != CON_STATUS.CONNECTED || !data.address) return;
-	        
-	        clearTimeout(serverDiscoveryTimeout);
-	        connectToServer(data.address);
-	        break;
+        case "Here":
+            console.log("User " + data.from + " is alive");
+
+            // Discovery work-around if the hotspot of this device is enabled
+            if (!discoveredUsers[data.from]) httpReq("GET", "http://" + data.from, "/here", "ip=" + btoa(GetIP()));
+
+            discoveredUsers[data.from] = Date.now();
+            break;
 	}
 }
 
-function onWsReceive(msg) {
-    if (verificationCode !== null)
-        if (verificationCode != msg) resetConnection();
-        else {
-            // TODO: Add special server key
-            clearTimeout(serverDiscoveryTimeout);
-            serverAddress = tmp.serverAddress;
-            connectionState = CON_STATUS.CONNECTED;
-            verificationCode = null;
-            sendMsg("Connected");
-        }
-    
-    let data = {};
+function onServletMessage(receivedData, _) {
+    let message = {};
     
     try {
-        data = JSON.parse(msg);
+        message = JSON.parse(atob(receivedData.data));
     } catch(e) {
         return;
     }
-
-    if (data.from == app.GetIPAddress()) {
-        if (data.type != "Message") return;
-        if (data.message.author == app.GetIPAddress()) return sendMsg("MessageSent");
-    };
     
-    const verifyMessage = (message) => {
-        if (typeof message != "object") return false;
-        if (!message.author || !message.content) return false;
-        
-        return true;
-    };
+    if (!message.author || !message.content) return false;
+    sendMsg("Message", message);
+}
 
-    switch(data.type) {
-        case "Message":
-            if (!verifyMessage(data.message)) return;
-            sendMsg("Message", data.message);
-            // TODO: Save messages to a file and delete that file every time
-            break;
-        default:
-            console.log("Unknown", msg);
-    }
+// Refactor this... it's horrible..
+function httpReq(type, baseUrl, path, params, retries = 0) {
+    const request = new Request(baseUrl + path + "?" + params, {
+        "method": "GET"
+    });
+
+    fetch(request).catch(() => {
+        retries++;
+        if (retries > 3) return;
+
+        setTimeout(httpReq(type, baseUrl, path, params, retries), 1000);
+    });
 }
