@@ -5,6 +5,7 @@ const GetIP = () => app.GetIPAddress() + ':' + SERVER_PORT;
 
 let net, server;
 let discoveredUsers = {};
+let isPaused = true;
 
 function OnStart() {
     app.SetDebug("console");
@@ -14,7 +15,10 @@ function OnStart() {
     net.SetOnReceive(onUDPMessage);
     net.ReceiveDatagrams(UDP_PORT, "UTF-8");
 
-    setInterval(() => sendMsg("Active", {"num": Object.keys(discoveredUsers).length}), 1000);
+    setInterval(() => {
+        console.log(Object.keys(discoveredUsers));
+        sendMsg("Active", {"num": Object.keys(discoveredUsers).length});
+    }, 1000);
 
     createServer();
 }
@@ -25,7 +29,15 @@ function OnMessage(data) {
 
     switch(data.type) {
         case "AreYouReady?":
+            isPaused = false;
             if (server) sendMsg("Ready");
+            break;
+
+        case "Paused":
+            isPaused = true;
+            break;
+        case "Resumed":
+            isPaused = false;
             break;
 
         case "SendMessage":
@@ -146,6 +158,13 @@ function onServletMessage(receivedData, _) {
     }
     
     if (!message.author || !message.content) return false;
+    
+    if (isPaused) {
+        const notif = app.CreateNotification("AutoCancel");
+        notif.SetMessage("New Message!", message.author, message.content)
+        notif.Notify(Date.now());
+    }
+
     sendMsg("Message", message);
 }
 

@@ -35,6 +35,15 @@ function OnStart() {
     });
     svc.SetOnMessage(onSvcMsg);
 }
+
+function OnPause() {
+    sendMessage("Paused");
+}
+
+function OnResume() {
+    sendMessage("Resumed");
+}
+
 function onSvcMsg(data) {
     if (typeof data != "object") data = JSON.parse(data);
     
