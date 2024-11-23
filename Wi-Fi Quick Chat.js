@@ -12,7 +12,7 @@ function OnStart() {
     
     scroller = app.AddScroller(lay, 1, 0.9);
     lay1 = app.CreateLayout("Linear");
-    msgList = app.AddList(lay1, "No Messages Yet:Launch the app on another device and start chatting!", 1, null, "Expand");
+    msgList = app.AddList(lay1, "No Messages Yet:Launch the app on another device and start chatting!:null", 1, null, "Expand");
     scroller.AddChild(lay1);
     
     layh1 = app.AddLayout(lay, "Linear", "Horizontal,Center");

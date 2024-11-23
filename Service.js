@@ -2,7 +2,6 @@ cfg.Fast; // Does this work?
 
 const UDP_PORT = 18902;
 const SERVER_PORT = 8912;
-const PSWD = "amazing.";
 const CON_STATUS = {
     "DISCONNECTED": 0,
     "CONNECTING": 1,
@@ -10,7 +9,7 @@ const CON_STATUS = {
 };
 const contentFolder = app.GetPrivateFolder();
 
-let net, crypt, server, wsClient;
+let net, server, wsClient;
 let isServer = false;
 let serverAddress = null;
 let connectionStatus = 0;
@@ -25,7 +24,6 @@ function OnStart() {
 	if (app.GetBuildNum() > 25) app.SetInForeground("Wi-Fi Quick Chat");
 	
 	net = app.CreateNetClient("UDP");
-	crypt = app.CreateCrypt();
 	
 	setInterval(checkUDPMessage, 500);
 	
@@ -44,7 +42,7 @@ function OnMessage(data) {
 
 function sendUDP(data) {
     console.log("Sending UDP: " + data.type);
-    net.SendDatagram(btoa(crypt.Encrypt(JSON.stringify(data), PSWD)), "UTF-8", net.GetBroadcastAddress(), UDP_PORT);
+    net.SendDatagram(JSON.stringify(data), "UTF-8", net.GetBroadcastAddress(), UDP_PORT);
 }
 
 function checkUDPMessage() {
@@ -54,11 +52,10 @@ function checkUDPMessage() {
     let data = {};
     
     try {
-	    let parsedData = JSON.parse(crypt.Decrypt(atob(packet), PSWD));
+	    let parsedData = JSON.parse(packet);
 	    data = parsedData;
 	} catch(e) {
 	    console.log(e);
-	    console.log(data);
 	    console.log(packet);
 	    return;
 	}
