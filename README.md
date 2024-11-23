@@ -18,11 +18,11 @@ There are two ways of using this app, using the [DroidScript IDE](#using-droidsc
 
 ## Usage
 
-It's pretty simple, you just open up the app on two or more devices and start chatting. Make sure both devices are connected to the same Wi-Fi network for it to work.
+It's pretty simple, you just open up the app on two or more devices and start chatting. Make sure both devices are connected to the same Wi-Fi network or use one device as a hotspot and then connect the other device to it for it to work.
 
 ## How it Works
 
-It finds a websocket server on the local network via UDP, if it doesn't find one in 5 seconds, it creates the server on the device and the device will be the server that every new device connects to.
+It creates a simple http server, after that, it broadcasts its IP with the PORT via UDP. Other devices which are listening to the UDP port can then connect to the webserver.
 
 ## Problems and Reflection
 
@@ -30,8 +30,7 @@ It finds a websocket server on the local network via UDP, if it doesn't find one
     * Because I used DroidScript's built-in `app.CreateServer`, I couldn't add support for sending media because there was no control over the max upload size.
 2. I should've used an HTML template because I would've been able to style te app more.
     * This would've allowed me to add video/audio calling support via WebRTC.
-3. Anyone could make a fake server to break the app.
-4. The messages list doesn't scroll to the last message even if I call `msgList.ScrollToItemByIndex`; A problem with DroidScript itself.
-5. Sending UDP messages when the device has its hotspot on doesn't work.
+3. The messages list doesn't scroll to the last message even if I call `msgList.ScrollToItemByIndex`; A problem with DroidScript itself.
+4. Sending UDP messages when the device is being used as a hotspot on doesn't work.
     * The device that has its hotspot turned on can't broadcast UDP messages to the devices connected to its hotspot, that's why I added a work-around for discovery
-    * There is a delay when sending a message from the hotspot device to any other device, but there isn't when it's the other way around.
+    * There is a small delay when sending a message from the hotspot device to any other device, but there isn't when it's the other way around.
