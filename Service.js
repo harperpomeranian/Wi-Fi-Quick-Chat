@@ -1,4 +1,5 @@
-cfg.Fast;
+cfg.Fast; // Does this work?
+
 const UDP_PORT = 18902;
 const SERVER_PORT = 8912;
 const PSWD = "amazing.";
@@ -59,7 +60,6 @@ function checkUDPMessage() {
 	    console.log(e);
 	    console.log(data);
 	    console.log(packet);
-	    console.log(atob(data));
 	    return;
 	}
 	
@@ -71,13 +71,13 @@ function checkUDPMessage() {
 	        if (connectionStatus != CON_STATUS.CONNECTING || connectionStatus != CON_STATUS.CONNECTED || !data.address) return;
 	        
 	        clearTimeout(serverDiscoveryTimeout);
-	        connectToSever(data.address);
+	        connectToServer(data.address);
 	        break;
 	}
 }
 
 function connectToServer(serverAddr) {
-    if (serverIp.split('.').length != 4) return;
+    if (serverAddr.split('.').length != 4) return;
     
     tmp.serverAddress = serverAddr;
     
@@ -87,7 +87,7 @@ function connectToServer(serverAddr) {
         verificationCode = Math.floor(Math.random() * 999);
         console.log("WS Opened, Verifying Connection... With code: " + verificationCode);
         app.HttpRequest("GET", "http://" + serverAddress + ':' + SERVER_PORT, "/verify", "call=" + app.GetIPAddress() + "|code=" + verificationCode, (err, rep) => {
-            if (err) return resetConnection();
+            if (err) resetConnection();
         });
     });
     wsClient.SetOnMessage(onWsReceive);
