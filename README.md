@@ -1,18 +1,18 @@
 # Wi-Fi Quick Chat
 
-Simple local Wi-Fi chat app that uses WebSockets and UDP made with [DroidScript](https://droidscript.org/)
+Simple local Wi-Fi chat app that uses WebSockets and UDP; Made with [DroidScript](https://droidscript.org/)
 
 ## Installation
 
 There are two ways of using this app, using the [DroidScript IDE](#using-droidscript) or by installing the APK.
 
 ### Using DroidScript
-* Download and install DroidScript from the Google Play Store
-* Download the [SPK](Wi-Fi%20Quick%20Chat.spk) from [releases]()
+* Download and install DroidScript from the Google Play Store or from their [website](https://droidscript.org/)
+* Download the [SPK](Wi-Fi%20Quick%20Chat.spk) from [releases](https://github.com/harperpomeranian/Wi-Fi-Quick-Chat/releases)
 * Run the app in DroidScript
 
 ### Installing the APK
-* Download the APK from [releases]()
+* Download the APK from [releases](https://github.com/harperpomeranian/Wi-Fi-Quick-Chat/releases)
 * Install the APK on your device
 * Run the app
 

@@ -1,5 +1,3 @@
-cfg.Fast; // Does this work?
-
 const UDP_PORT = 18902;
 const SERVER_PORT = 8912;
 const CON_STATUS = {
@@ -28,14 +26,14 @@ function OnStart() {
 	setInterval(checkUDPMessage, 500);
 	
 	sendUDP({"type": "DiscoverServer"});
-	serverDiscoveryTimeout = setTimeout(createServer, 5000);
+	serverDiscoveryTimeout = setTimeout(createServer, 3000); // Maybe make this longer?
 }
 
 function OnMessage(data) {
     data = JSON.parse(data);
     switch(data.type) {
         case "SendMessage":
-            // TODO: Send the message via Websocket
+            
             break;
     }
 }
@@ -43,6 +41,15 @@ function OnMessage(data) {
 function sendUDP(data) {
     console.log("Sending UDP: " + data.type);
     net.SendDatagram(JSON.stringify(data), "UTF-8", net.GetBroadcastAddress(), UDP_PORT);
+}
+
+function sendWs(type, data) {
+    console.log("Sending WS: " + type);
+    let toSend = {
+        type
+    };
+    for(let k in data) toSend[k] = data[k];
+    wsClient.send(toSend);
 }
 
 function checkUDPMessage() {
@@ -110,9 +117,6 @@ function createServer() {
     sendMsg("Connected");
 }
 
-function broadcastMessage() {
-}
-
 function sendMsg(type, data = {}) {
     console.log("Sending to app: " + type);
     app.SendMessage(JSON.stringify({"type": type, ...data}));
@@ -122,6 +126,7 @@ function onWsReceive(msg) {
     if (verificationCode !== null)
         if (verificationCode != msg) resetConnection();
         else {
+            // TODO: Add special server key
             clearTimeout(serverDiscoveryTimeout);
             serverAddress = tmp.serverAddress;
             connectionState = CON_STATUS.CONNECTED;
@@ -136,13 +141,22 @@ function onWsReceive(msg) {
     } catch(e) {
         return;
     }
+
+    if (data.from == app.GetIPAddress()) return;
     
+    const verifyMessage = (message) => {
+        if (typeof message != "object") return false;
+        if (!message.author || !message.content) return false;
+        
+        return true;
+    };
+
     switch(data.type) {
         case "Message":
+            if (!verifyMessage(data.message)) return;
             sendMsg("Message", data.message);
             break;
         default:
-            console.log('Idk');
-            console.log(msg);
+            console.log("Unknown", msg);
     }
 }

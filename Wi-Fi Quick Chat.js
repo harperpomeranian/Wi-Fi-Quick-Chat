@@ -1,4 +1,4 @@
-cfg.Fast, cfg.Dark, cfg.Portrait;
+cfg.Dark, cfg.Portrait;
 
 function OnStart() {
     app.SetDebug("console");
@@ -16,12 +16,15 @@ function OnStart() {
     scroller.AddChild(lay1);
     
     layh1 = app.AddLayout(lay, "Linear", "Horizontal,Center");
-    layh1.SetSize(1, .05)
+    layh1.SetSize(1, .05);
     layh1.SetBackColor('#202020');
+
     messageBox = app.AddTextEdit(layh1, "", .8, .05, "SingleLine");
     messageBox.SetHint('Enter your cool message...');
+
     sendBtn = app.AddButton(layh1, 'Send');
     sendBtn.SetOnTouch(onSendMsg);
+    
     app.AddLayout(lay);
     
     svc = app.CreateService("this", "this", () => app.ShowProgress("Connection Loading..."), "Persist");
