@@ -8,11 +8,11 @@ There are two ways of using this app, using the [DroidScript IDE](#using-droidsc
 
 ### Using DroidScript
 * Download and install DroidScript from the Google Play Store or from their [website](https://droidscript.org/)
-* Download the [SPK](Wi-Fi%20Quick%20Chat.spk) from [releases](https://github.com/harperpomeranian/Wi-Fi-Quick-Chat/releases)
+* Download the [SPK](Wi-Fi-Quick-Chat.spk) from [releases](https://github.com/harperpomeranian/Wi-Fi-Quick-Chat/releases)
 * Run the app in DroidScript
 
 ### Installing the APK
-* Download the APK from [releases](https://github.com/harperpomeranian/Wi-Fi-Quick-Chat/releases)
+* Download the [APK](Wi-Fi-Quick-Chat.apk) from [releases](https://github.com/harperpomeranian/Wi-Fi-Quick-Chat/releases)
 * Install the APK on your device
 * Run the app
 
